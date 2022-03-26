@@ -7,6 +7,8 @@ const TOKEN_BASE_URL = 'https://www.reddit.com/api/v1/access_token'
 const API_BASE_URL = 'https://oauth.reddit.com'
 const REQUEST_TIMEOUT = 30 * 1000
 
+const RATELIMIT = Symbol("Ratelimit")
+
 class Reddit {
   constructor (opts) {
     this.username = opts.username
@@ -17,6 +19,13 @@ class Reddit {
 
     this.token = null
     this.tokenExpireDate = 0
+
+    this.ratelimit = {
+      remaining: null,
+      used: null,
+      reset: null,
+      reset_at: null
+    }
   }
 
   async get (url, data = {}) {
@@ -150,13 +159,30 @@ class Reddit {
 
         debug('Got a response with statusCode: ' + res.statusCode)
 
+        let remaining = res.headers["x-ratelimit-remaining"] ?? null;
+        let used = res.headers["x-ratelimit-used"] ?? null;
+        let reset = res.headers["x-ratelimit-reset"] ?? null;
+        let reset_at = reset !== null ? Date.now() + reset * 1000 : null;
+
+        body[RATELIMIT] = {
+          remaining: remaining !== null ? +remaining : null,
+          used: used !== null ? +used : null,
+          reset: reset !== null ? +reset : null,
+          reset_at: reset_at !== null ? +reset_at : null,
+        };
+
+        if (remaining !== null) this.ratelimit.remaining = remaining;
+        if (used !== null) this.ratelimit.used = used;
+        if (reset !== null) this.ratelimit.reset = reset;
+        if (reset_at !== null) this.ratelimit.reset_at = reset_at;
+
         const statusType = Math.floor(res.statusCode / 100)
 
         if (statusType === 2) {
           return resolve(body)
         } else {
           return reject(
-            new Error(`API error: ${body.message}. Status code: ${res.statusCode}`)
+            new Error(`API error: ${body.message}. Status code: ${res.statusCode}. From: ${metho} ${url}`)
           )
         }
       })
@@ -165,3 +191,4 @@ class Reddit {
 }
 
 module.exports = Reddit
+module.exports.RATELIMIT = RATELIMIT;
