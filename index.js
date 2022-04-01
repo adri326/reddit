@@ -182,7 +182,7 @@ class Reddit {
           return resolve(body)
         } else {
           return reject(
-            new Error(`API error: ${body.message}. Status code: ${res.statusCode}. From: ${metho} ${url}`)
+            new Error(`API error: ${body.message}. Status code: ${res.statusCode}. From: ${method} ${url}`)
           )
         }
       })
